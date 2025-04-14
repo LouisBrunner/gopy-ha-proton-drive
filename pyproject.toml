@@ -1,0 +1,35 @@
+[project]
+name = "proton"
+version = "0.0.1"
+description = "Python bindings for a Go wrapper around go-proton-api and Proton-API-Bridge"
+readme = "README.md"
+requires-python = ">=3.13"
+keywords = ["proton", "drive"]
+authors = [{ name = "Louis Brunner", email = "pip@lbrunner.net" }]
+license = "MPL-2.0"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Development Status :: 3 - Alpha",
+  "Operating System :: OS Independent",
+]
+
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/LouisBrunner/gopy-ha-proton-drive"
+Repository = "https://github.com/LouisBrunner/gopy-ha-proton-drive"
+
+[build-system]
+requires = ["setuptools", "setuptools-gopy >= 0.0.5"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages]
+find = { where = ["python"] }
+
+[tool.setuptools.package-data]
+proton = ["py.typed"]
+
+[[tool.setuptools-gopy.ext-packages]]
+name = "proton.proton"
+go_package = "github.com/LouisBrunner/gopy-ha-proton-drive/go"
+go_version = "1.24.2"
