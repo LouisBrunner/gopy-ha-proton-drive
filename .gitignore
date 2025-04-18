@@ -5,3 +5,4 @@ build
 python/proton/*
 !python/proton/__init__.py
 !python/proton/py.typed
+dist
