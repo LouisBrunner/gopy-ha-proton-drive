@@ -20,7 +20,7 @@ Homepage = "https://github.com/LouisBrunner/gopy-ha-proton-drive"
 Repository = "https://github.com/LouisBrunner/gopy-ha-proton-drive"
 
 [build-system]
-requires = ["setuptools", "setuptools-gopy >= 0.0.7"]
+requires = ["setuptools", "setuptools-gopy >= 0.0.8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages]
@@ -33,3 +33,4 @@ proton = ["py.typed"]
 name = "proton.proton"
 go_package = "github.com/LouisBrunner/gopy-ha-proton-drive/go"
 go_version = "1.24.2"
+manylinux = { image = "manylinux2014", archs = ["x86_64", "aarch64"] }
