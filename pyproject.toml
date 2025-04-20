@@ -33,4 +33,3 @@ proton = ["py.typed"]
 name = "proton.proton"
 go_package = "github.com/LouisBrunner/gopy-ha-proton-drive/go"
 go_version = "1.24.2"
-manylinux = { image = "manylinux2014", archs = ["x86_64", "aarch64"] }
