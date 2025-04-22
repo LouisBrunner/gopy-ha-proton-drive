@@ -1,5 +1,5 @@
 [project]
-name = "proton"
+name = "gopy-ha-proton-drive"
 version = "0.0.1"
 description = "Python bindings for a Go wrapper around go-proton-api and Proton-API-Bridge"
 readme = "README.md"
