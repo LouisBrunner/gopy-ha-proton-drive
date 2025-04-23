@@ -1,6 +1,6 @@
 [project]
 name = "gopy-ha-proton-drive"
-version = "0.0.1"
+version = "0.0.2"
 description = "Python bindings for a Go wrapper around go-proton-api and Proton-API-Bridge"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -20,7 +20,7 @@ Homepage = "https://github.com/LouisBrunner/gopy-ha-proton-drive"
 Repository = "https://github.com/LouisBrunner/gopy-ha-proton-drive"
 
 [build-system]
-requires = ["setuptools", "setuptools-gopy >= 0.0.8"]
+requires = ["setuptools", "setuptools-gopy >= 0.0.9"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages]
