@@ -11,9 +11,7 @@ import (
 	"github.com/henrybear327/go-proton-api"
 )
 
-func (me *Client) MakeRootFolder(path string) (*Folder, error) {
-	ctx := context.Background() // FIXME: from Python?
-
+func (me *Client) MakeRootFolder(ctx context.Context, path string) (*Folder, error) {
 	folders := strings.Split(path, "/")
 	currentFolder := me.drive.RootLink
 	for i, folder := range folders {
@@ -56,9 +54,7 @@ type Folder struct {
 	client *Client
 }
 
-func (me *Folder) FindBackup(instanceID, backupID string) (string, error) {
-	ctx := context.Background() // FIXME: from Python?
-
+func (me *Folder) FindBackup(ctx context.Context, instanceID, backupID string) (string, error) {
 	suffix := extendedSuffix(instanceID, backupID, archiveSuffix)
 	file, err := me.client.findFileInFn(ctx, me.LinkID, func(file *proton_api_bridge.ProtonDirectoryData) bool {
 		return strings.HasSuffix(file.Name, suffix)
@@ -70,9 +66,7 @@ func (me *Folder) FindBackup(instanceID, backupID string) (string, error) {
 	return file.Link.LinkID, nil
 }
 
-func (me *Folder) Upload(instanceID, backupID, name, metadataJSON, contentPath string) error {
-	ctx := context.Background() // FIXME: from Python?
-
+func (me *Folder) Upload(ctx context.Context, instanceID, backupID, name, metadataJSON, contentPath string) error {
 	baseName, err := radixFromArchive(name)
 	if err != nil {
 		return err
@@ -105,9 +99,7 @@ func (me *Folder) Upload(instanceID, backupID, name, metadataJSON, contentPath s
 	return nil
 }
 
-func (me *Folder) ListFilesMetadata(instanceID string) ([]string, error) {
-	ctx := context.Background() // FIXME: from Python?
-
+func (me *Folder) ListFilesMetadata(ctx context.Context, instanceID string) ([]string, error) {
 	suffix := extendedSuffix(instanceID, "", metadataSuffix)
 
 	files, err := me.client.drive.ListDirectory(ctx, me.LinkID)

@@ -1,8 +1,5 @@
 .DS_Store
 __pycache__
 build
-*.egg-info
-python/proton/*
-!python/proton/__init__.py
-!python/proton/py.typed
 dist
+*.egg-info

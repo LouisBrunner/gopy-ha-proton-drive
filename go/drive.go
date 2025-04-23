@@ -7,9 +7,7 @@ import (
 	"os"
 )
 
-func (me *Client) DownloadFile(linkID string) (_ string, ferr error) {
-	ctx := context.Background() // FIXME: from Python?
-
+func (me *Client) DownloadFile(ctx context.Context, linkID string) (_ string, ferr error) {
 	link, err := me.drive.GetLink(ctx, linkID)
 	if err != nil {
 		return "", fmt.Errorf("failed to find file: %w", err)
@@ -40,9 +38,7 @@ func (me *Client) DownloadFile(linkID string) (_ string, ferr error) {
 	return name, nil
 }
 
-func (me *Client) DeleteFile(linkID string) error {
-	ctx := context.Background() // FIXME: from Python?
-
+func (me *Client) DeleteFile(ctx context.Context, linkID string) error {
 	link, err := me.drive.GetLink(ctx, linkID)
 	if err != nil {
 		return fmt.Errorf("failed to find file: %w", err)

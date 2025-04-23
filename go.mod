@@ -13,9 +13,9 @@ replace github.com/henrybear327/go-proton-api => github.com/LouisBrunner/go-prot
 
 require (
 	github.com/ProtonMail/gopenpgp/v2 v2.8.2
-	github.com/go-python/gopy v0.4.10
 	github.com/henrybear327/Proton-API-Bridge v1.0.0
 	github.com/henrybear327/go-proton-api v1.0.0
+	github.com/urfave/cli/v3 v3.2.0
 )
 
 require (
@@ -31,6 +31,7 @@ require (
 	github.com/cronokirby/saferith v0.33.0 // indirect
 	github.com/emersion/go-message v0.18.2 // indirect
 	github.com/emersion/go-vcard v0.0.0-20241024213814-c9703dde27ff // indirect
+	github.com/go-python/gopy v0.4.10 // indirect
 	github.com/go-resty/resty/v2 v2.16.3 // indirect
 	github.com/gonuts/commander v0.1.0 // indirect
 	github.com/gonuts/flag v0.1.0 // indirect

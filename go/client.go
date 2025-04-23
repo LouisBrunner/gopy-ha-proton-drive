@@ -24,13 +24,13 @@ func getConfig() *common.Config {
 	return config
 }
 
-func Login(username, password, mfa string) (*Credentials, error) {
+func Login(ctx context.Context, username, password, mfa string) (*Credentials, error) {
 	config := getConfig()
 	config.FirstLoginCredential.Username = username
 	config.FirstLoginCredential.Password = password
 	config.FirstLoginCredential.TwoFA = mfa
 
-	_, auth, err := proton_api_bridge.NewProtonDrive(context.Background(), config, func(a proton.Auth) {}, func() {})
+	_, auth, err := proton_api_bridge.NewProtonDrive(ctx, config, func(a proton.Auth) {}, func() {})
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,9 @@ func Login(username, password, mfa string) (*Credentials, error) {
 	return (*Credentials)(auth), nil
 }
 
-func NewClient(creds Credentials, onAuthChange func(uid, accessToken, refreshToken string)) (*Client, error) {
+type OnAuthChange func(creds Credentials)
+
+func NewClient(ctx context.Context, creds Credentials, onAuthChange OnAuthChange) (*Client, error) {
 	config := getConfig()
 	config.UseReusableLogin = true
 	config.ReusableCredential.UID = creds.UID
@@ -46,14 +48,19 @@ func NewClient(creds Credentials, onAuthChange func(uid, accessToken, refreshTok
 	config.ReusableCredential.RefreshToken = creds.RefreshToken
 	config.ReusableCredential.SaltedKeyPass = creds.SaltedKeyPass
 
-	drive, _, err := proton_api_bridge.NewProtonDrive(context.Background(), config, func(a proton.Auth) {
+	drive, _, err := proton_api_bridge.NewProtonDrive(ctx, config, func(a proton.Auth) {
 		config.ReusableCredential.UID = a.UID
 		config.ReusableCredential.AccessToken = a.AccessToken
 		config.ReusableCredential.RefreshToken = a.RefreshToken
 		if onAuthChange == nil {
 			return
 		}
-		onAuthChange(a.UID, a.AccessToken, a.RefreshToken)
+		onAuthChange(Credentials{
+			UID:           a.UID,
+			AccessToken:   a.AccessToken,
+			RefreshToken:  a.RefreshToken,
+			SaltedKeyPass: creds.SaltedKeyPass,
+		})
 	}, func() {})
 	if err != nil {
 		return nil, err

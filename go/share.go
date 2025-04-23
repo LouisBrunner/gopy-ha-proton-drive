@@ -13,9 +13,7 @@ type Share struct {
 	ShareID string
 }
 
-func (me *Client) ListShares() ([]Share, error) {
-	ctx := context.Background() // FIXME: get from Python?
-
+func (me *Client) ListShares(ctx context.Context) ([]Share, error) {
 	shares, err := me.client.ListShares(ctx, true)
 	if err != nil {
 		return nil, err
@@ -52,9 +50,7 @@ func (me *Client) ListShares() ([]Share, error) {
 	return fshares, nil
 }
 
-func (me *Client) SelectShare(shareID string) error {
-	ctx := context.Background() // FIXME: get from Python?
-
+func (me *Client) SelectShare(ctx context.Context, shareID string) error {
 	shareData, err := me.fetchShare(ctx, shareID)
 	if err != nil {
 		return err
