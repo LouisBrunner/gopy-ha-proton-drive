@@ -217,19 +217,24 @@ class Client:
         self._share_id = shareID
         self._exec("check")
 
+    def _handle_auth_change(self, new_creds: Credentials) -> None:
+        self._creds = new_creds
+        if self._on_auth_change is not None:
+            self._on_auth_change(new_creds)
+
     def _exec(self, command: str, **kwargs) -> _Result:
         return _call_go_exec(
             "with-creds",
             command,
             creds=self._creds,
-            on_auth_change=self._on_auth_change,
+            on_auth_change=self._handle_auth_change,
             share_id=self._share_id,
             **kwargs,
         )
 
 
-def NewClient(creds: Credentials, onAuthChange: OnAuthChange) -> Client:
-    return Client(creds=creds, on_auth_change=onAuthChange)
+def NewClient(creds: Credentials, on_auth_change: OnAuthChange) -> Client:
+    return Client(creds=creds, on_auth_change=on_auth_change)
 
 
 def Login(username: str, password: str, mfa: str) -> Credentials:

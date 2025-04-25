@@ -1,6 +1,6 @@
 [project]
 name = "gopy-ha-proton-drive"
-version = "0.0.3"
+version = "0.0.4"
 description = "Python bindings for a Go wrapper around go-proton-api and Proton-API-Bridge"
 readme = "README.md"
 requires-python = ">=3.13"
