@@ -40,6 +40,63 @@ class _Result:
 OnAuthChange = Callable[[Credentials], None]
 
 
+def _get_redacted_args(
+    args: List[str],
+    *,
+    creds: Optional[Credentials],
+    username: str,
+    password: str,
+    mfa: str,
+) -> str:
+    debug_args = " ".join(args)
+    if username != "":
+        debug_args = debug_args.replace(username, "<REDACTED>")
+    if password != "":
+        debug_args = debug_args.replace(password, "<REDACTED>")
+    if mfa != "":
+        debug_args = debug_args.replace(mfa, "<REDACTED>")
+    if creds is not None:
+        debug_args = debug_args.replace(creds.UID, "<REDACTED>")
+        debug_args = debug_args.replace(creds.AccessToken, "<REDACTED>")
+        debug_args = debug_args.replace(creds.RefreshToken, "<REDACTED>")
+        debug_args = debug_args.replace(creds.SaltedKeyPass, "<REDACTED>")
+    return debug_args
+
+
+def _get_redacted_output(output: str, output_dict: dict) -> str:
+    redacted_output = output
+    if (creds_data := output_dict.get("creds")) is not None:
+        redacted_output = redacted_output.replace(creds_data["UID"], "<REDACTED>")
+        redacted_output = redacted_output.replace(
+            creds_data["AccessToken"], "<REDACTED>"
+        )
+        redacted_output = redacted_output.replace(
+            creds_data["RefreshToken"], "<REDACTED>"
+        )
+        redacted_output = redacted_output.replace(
+            creds_data["SaltedKeyPass"], "<REDACTED>"
+        )
+    return redacted_output
+
+
+def _get_redacted_res(res: _Result) -> str:
+    redacted_res = _Result(
+        Creds=None,
+        LinkID=res.LinkID,
+        DownloadedPath=res.DownloadedPath,
+        Shares=res.Shares,
+        Metadata=res.Metadata,
+    )
+    if res.Creds is not None:
+        redacted_res.Creds = Credentials(
+            UID="<REDACTED>",
+            AccessToken="<REDACTED>",
+            RefreshToken="<REDACTED>",
+            SaltedKeyPass="<REDACTED>",
+        )
+    return str(redacted_res)
+
+
 def _call_go_exec(
     *commands: str,
     creds: Optional[Credentials] = None,
@@ -93,45 +150,25 @@ def _call_go_exec(
     if mfa != "":
         args.extend(["--mfa", mfa])
     try:
-        debug_args = " ".join(args)
-        if username != "":
-            debug_args = debug_args.replace(username, "<REDACTED>")
-        if password != "":
-            debug_args = debug_args.replace(password, "<REDACTED>")
-        if mfa != "":
-            debug_args = debug_args.replace(mfa, "<REDACTED>")
-        if creds is not None:
-            debug_args = debug_args.replace(creds.UID, "<REDACTED>")
-            debug_args = debug_args.replace(creds.AccessToken, "<REDACTED>")
-            debug_args = debug_args.replace(creds.RefreshToken, "<REDACTED>")
-            debug_args = debug_args.replace(creds.SaltedKeyPass, "<REDACTED>")
-        logger.debug(f"Executing {_go_exec} {debug_args}")
+        logger.debug(
+            f"Executing {_go_exec} {_get_redacted_args(args[1:], creds=creds, username=username, password=password, mfa=mfa)}"
+        )
 
         res = subprocess.run(
             args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
-        output = res.stdout.decode("utf-8")
+        output = res.stdout.decode("utf-8").strip()
         log_lines = res.stderr.decode("utf-8").splitlines()
         for line in log_lines:
             logger.debug(line)
 
         output_dict = json.loads(output)
-        redacted_output = output.strip()
+        logger.debug(f"Output: {_get_redacted_output(output, output_dict)}")
 
         if (error := output_dict.get("error")) is not None:
             raise RuntimeError(error)
         creds = None
         if (creds_data := output_dict.get("creds")) is not None:
-            redacted_output = redacted_output.replace(creds_data["UID"], "<REDACTED>")
-            redacted_output = redacted_output.replace(
-                creds_data["AccessToken"], "<REDACTED>"
-            )
-            redacted_output = redacted_output.replace(
-                creds_data["RefreshToken"], "<REDACTED>"
-            )
-            redacted_output = redacted_output.replace(
-                creds_data["SaltedKeyPass"], "<REDACTED>"
-            )
             creds = Credentials(
                 UID=creds_data["UID"],
                 AccessToken=creds_data["AccessToken"],
@@ -146,7 +183,6 @@ def _call_go_exec(
                 Share(ShareID=share["ShareID"], Name=share["Name"])
                 for share in shares_data
             ]
-        logger.debug(f"Output: {redacted_output}")
         res = _Result(
             Creds=creds,
             LinkID=output_dict.get("link_id"),
@@ -154,11 +190,19 @@ def _call_go_exec(
             Shares=shares,
             Metadata=output_dict.get("metadata"),
         )
-        logger.debug(f"Result: {res}")
+        logger.debug(f"Result: {_get_redacted_res(res)}")
         return res
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            f"internal error (invalid Go exec output): {error}"
+        ) from error
+    except UnicodeDecodeError as error:
+        raise RuntimeError(
+            f"internal error (invalid Go exec output encoding): {error}"
+        ) from error
     except FileNotFoundError as error:
         raise RuntimeError(f"internal error (no Go exec): {error}") from error
-    except subprocess.CalledProcessError as error:
+    except subprocess.SubprocessError as error:
         raise RuntimeError(f"internal error (Go exec failed): {error}") from error
 
 
