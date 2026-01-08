@@ -8,7 +8,7 @@ from typing import Callable, List, Optional
 
 _go_exec = pathlib.Path(__file__).parent.resolve() / "_go_exec"
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 if "PROTON_LOGLEVEL" in os.environ:
     logging.basicConfig()
     logger.setLevel(os.environ["PROTON_LOGLEVEL"].upper())
@@ -38,6 +38,67 @@ class _Result:
 
 
 OnAuthChange = Callable[[Credentials], None]
+
+
+def _redact_string(s: str, to_redact: List[str]) -> str:
+    out = s
+    for item in to_redact:
+        if item != "":
+            out = out.replace(item, "<REDACTED>")
+    return out
+
+
+def _get_redacted_args(
+    args: List[str],
+    *,
+    creds: Optional[Credentials],
+    username: str,
+    password: str,
+    mfa: str,
+) -> str:
+    debug_args = " ".join(args)
+    return _redact_string(
+        debug_args,
+        [username, password, mfa]
+        + (
+            [creds.UID, creds.AccessToken, creds.RefreshToken, creds.SaltedKeyPass]
+            if creds is not None
+            else []
+        ),
+    )
+
+
+def _get_redacted_output(output: str, output_dict: dict) -> str:
+    redacted_output = output
+    if (creds_data := output_dict.get("creds")) is not None:
+        redacted_output = _redact_string(
+            redacted_output,
+            [
+                creds_data["UID"],
+                creds_data["AccessToken"],
+                creds_data["RefreshToken"],
+                creds_data["SaltedKeyPass"],
+            ],
+        )
+    return redacted_output
+
+
+def _get_redacted_res(res: _Result) -> str:
+    redacted_res = _Result(
+        Creds=None,
+        LinkID=res.LinkID,
+        DownloadedPath=res.DownloadedPath,
+        Shares=res.Shares,
+        Metadata=res.Metadata,
+    )
+    if res.Creds is not None:
+        redacted_res.Creds = Credentials(
+            UID="<REDACTED>",
+            AccessToken="<REDACTED>",
+            RefreshToken="<REDACTED>",
+            SaltedKeyPass="<REDACTED>",
+        )
+    return str(redacted_res)
 
 
 def _call_go_exec(
@@ -93,10 +154,21 @@ def _call_go_exec(
     if mfa != "":
         args.extend(["--mfa", mfa])
     try:
-        logger.debug(f"Executing {_go_exec} {' '.join(args)}")
-        output = subprocess.check_output(args)
-        logger.debug(f"Output: {output}")
-        output_dict = json.loads(output.decode("utf-8"))
+        logger.debug(
+            f"Executing {_go_exec} {_get_redacted_args(args[1:], creds=creds, username=username, password=password, mfa=mfa)}"
+        )
+
+        res = subprocess.run(
+            args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        output = res.stdout.decode("utf-8").strip()
+        log_lines = res.stderr.decode("utf-8").splitlines()
+        for line in log_lines:
+            logger.debug(line)
+
+        output_dict = json.loads(output)
+        logger.debug(f"Output: {_get_redacted_output(output, output_dict)}")
+
         if (error := output_dict.get("error")) is not None:
             raise RuntimeError(error)
         creds = None
@@ -122,12 +194,25 @@ def _call_go_exec(
             Shares=shares,
             Metadata=output_dict.get("metadata"),
         )
-        logger.debug(f"Result: {res}")
+        logger.debug(f"Result: {_get_redacted_res(res)}")
         return res
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            f"internal error (invalid Go exec output): {error}"
+        ) from error
+    except UnicodeDecodeError as error:
+        raise RuntimeError(
+            f"internal error (invalid Go exec output encoding): {error}"
+        ) from error
     except FileNotFoundError as error:
         raise RuntimeError(f"internal error (no Go exec): {error}") from error
-    except subprocess.CalledProcessError as error:
+    except subprocess.SubprocessError as error:
         raise RuntimeError(f"internal error (Go exec failed): {error}") from error
+
+
+def ConfigureLogger(new_logger: logging.Logger):
+    global logger
+    logger = new_logger
 
 
 class Folder:

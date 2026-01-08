@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	proton "github.com/LouisBrunner/gopy-ha-proton-drive/go"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
 
@@ -25,8 +26,8 @@ type result struct {
 	Metadata []string `json:"metadata"`
 }
 
-func prepareClient(ctx context.Context, cmd *cli.Command, onAuthChange proton.OnAuthChange) (*proton.Client, *proton.Folder, error) {
-	client, err := proton.NewClient(ctx, proton.Credentials{
+func prepareClient(ctx context.Context, logger *logrus.Logger, cmd *cli.Command, onAuthChange proton.OnAuthChange) (*proton.Client, *proton.Folder, error) {
+	client, err := proton.NewClient(ctx, logger, proton.Credentials{
 		UID:           cmd.String("uid"),
 		AccessToken:   cmd.String("access-token"),
 		RefreshToken:  cmd.String("refresh-token"),
@@ -50,10 +51,11 @@ func prepareClient(ctx context.Context, cmd *cli.Command, onAuthChange proton.On
 	return client, folder, nil
 }
 
-func work(ctx context.Context, args []string) (*result, error) {
+func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, error) {
 	var err error
 	var res result
 	credUpdater := func(newCreds proton.Credentials) {
+		logger.Infof("Credentials automatically renewed by Proton")
 		res.Creds = &newCreds
 	}
 
@@ -109,7 +111,7 @@ func work(ctx context.Context, args []string) (*result, error) {
 					{
 						Name: "check",
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							_, _, err := prepareClient(ctx, cmd, credUpdater)
+							_, _, err := prepareClient(ctx, logger, cmd, credUpdater)
 							return err
 						},
 					},
@@ -122,7 +124,7 @@ func work(ctx context.Context, args []string) (*result, error) {
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							client, _, err := prepareClient(ctx, cmd, credUpdater)
+							client, _, err := prepareClient(ctx, logger, cmd, credUpdater)
 							if err != nil {
 								return err
 							}
@@ -143,7 +145,7 @@ func work(ctx context.Context, args []string) (*result, error) {
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							client, _, err := prepareClient(ctx, cmd, credUpdater)
+							client, _, err := prepareClient(ctx, logger, cmd, credUpdater)
 							if err != nil {
 								return err
 							}
@@ -163,7 +165,7 @@ func work(ctx context.Context, args []string) (*result, error) {
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							_, folder, err := prepareClient(ctx, cmd, credUpdater)
+							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater)
 							if err != nil {
 								return err
 							}
@@ -200,7 +202,7 @@ func work(ctx context.Context, args []string) (*result, error) {
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							_, folder, err := prepareClient(ctx, cmd, credUpdater)
+							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater)
 							if err != nil {
 								return err
 							}
@@ -216,7 +218,7 @@ func work(ctx context.Context, args []string) (*result, error) {
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							_, folder, err := prepareClient(ctx, cmd, credUpdater)
+							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater)
 							if err != nil {
 								return err
 							}
@@ -227,7 +229,7 @@ func work(ctx context.Context, args []string) (*result, error) {
 					{
 						Name: "list-shares",
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							client, _, err := prepareClient(ctx, cmd, credUpdater)
+							client, _, err := prepareClient(ctx, logger, cmd, credUpdater)
 							if err != nil {
 								return err
 							}
@@ -247,8 +249,8 @@ func work(ctx context.Context, args []string) (*result, error) {
 	return &res, nil
 }
 
-func wrapper(ctx context.Context, args []string) error {
-	res, err := work(ctx, args)
+func wrapper(ctx context.Context, logger *logrus.Logger, args []string) error {
+	res, err := work(ctx, logger, args)
 	if err != nil {
 		return err
 	}
@@ -261,10 +263,19 @@ func wrapper(ctx context.Context, args []string) error {
 }
 
 func main() {
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+	logger.SetOutput(os.Stderr)
+	logger.SetReportCaller(true)
+	logger.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	err := wrapper(ctx, os.Args)
+	err := wrapper(ctx, logger, os.Args)
 	if err != nil {
+		logger.WithError(err).Error("failed")
 		fmt.Printf(`{"error": %q}`, err.Error())
 	}
 }

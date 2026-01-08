@@ -6,11 +6,13 @@ import (
 	proton_api_bridge "github.com/henrybear327/Proton-API-Bridge"
 	"github.com/henrybear327/Proton-API-Bridge/common"
 	"github.com/henrybear327/go-proton-api"
+	"github.com/sirupsen/logrus"
 )
 
 type Client struct {
 	drive  *proton_api_bridge.ProtonDrive
 	client *proton.Client
+	logger *logrus.Logger
 }
 
 type Credentials common.ProtonDriveCredential
@@ -40,7 +42,7 @@ func Login(ctx context.Context, username, password, mfa string) (*Credentials, e
 
 type OnAuthChange func(creds Credentials)
 
-func NewClient(ctx context.Context, creds Credentials, onAuthChange OnAuthChange) (*Client, error) {
+func NewClient(ctx context.Context, logger *logrus.Logger, creds Credentials, onAuthChange OnAuthChange) (*Client, error) {
 	config := getConfig()
 	config.UseReusableLogin = true
 	config.ReusableCredential.UID = creds.UID
@@ -74,5 +76,6 @@ func NewClient(ctx context.Context, creds Credentials, onAuthChange OnAuthChange
 	return &Client{
 		drive:  drive,
 		client: realClient,
+		logger: logger,
 	}, nil
 }
