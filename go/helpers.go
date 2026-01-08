@@ -95,16 +95,6 @@ func (me *Client) readFile(ctx context.Context, link *proton.Link, details strin
 	return string(content), nil
 }
 
-func (me *Client) getName(ctx context.Context, file *proton.Link) (string, error) {
-	fileData, err := me.findFileInFn(ctx, file.ParentLinkID, func(data *proton_api_bridge.ProtonDirectoryData) bool {
-		return data.Link.LinkID == file.LinkID
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to get file name for %q: %w", file.LinkID, err)
-	}
-	return fileData.Name, nil
-}
-
 func (me *Client) readMetadata(ctx context.Context, file *proton.Link) (*Metadata, string, error) {
 	rawMetadata, err := me.readFile(ctx, file, " metadata")
 	if err != nil {
