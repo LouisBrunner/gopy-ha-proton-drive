@@ -10,6 +10,7 @@ replace github.com/henrybear327/go-proton-api => github.com/LouisBrunner/go-prot
 
 require (
 	github.com/ProtonMail/gopenpgp/v2 v2.8.2
+	github.com/hashicorp/go-version v1.8.0
 	github.com/henrybear327/Proton-API-Bridge v1.0.0
 	github.com/henrybear327/go-proton-api v1.0.0
 	github.com/sirupsen/logrus v1.9.3
