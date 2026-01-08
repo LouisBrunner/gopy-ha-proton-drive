@@ -1,4 +1,4 @@
-name: Lint
+name: Lint Python
 
 on:
   push:
@@ -25,10 +25,10 @@ jobs:
           cache: "pip"
 
       - name: Install requirements
-        run: python3 -m pip install -r requirements-dev.txt
+        run: make install
 
       - name: Lint
-        run: python3 -m ruff check .
+        run: make lint
 
       - name: Format
-        run: python3 -m ruff format . --check
+        run: make format

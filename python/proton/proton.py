@@ -8,7 +8,7 @@ from typing import Callable, List, Optional
 
 _go_exec = pathlib.Path(__file__).parent.resolve() / "_go_exec"
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 if "PROTON_LOGLEVEL" in os.environ:
     logging.basicConfig()
     logger.setLevel(os.environ["PROTON_LOGLEVEL"].upper())
@@ -94,9 +94,16 @@ def _call_go_exec(
         args.extend(["--mfa", mfa])
     try:
         logger.debug(f"Executing {_go_exec} {' '.join(args)}")
-        output = subprocess.check_output(args)
-        logger.debug(f"Output: {output}")
-        output_dict = json.loads(output.decode("utf-8"))
+        res = subprocess.run(
+            args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        output = res.stdout.decode("utf-8")
+        logger.debug(f"Output: {output.strip()}")
+        log_lines = res.stderr.decode("utf-8").splitlines()
+        for line in log_lines:
+            logger.debug(line)
+
+        output_dict = json.loads(output)
         if (error := output_dict.get("error")) is not None:
             raise RuntimeError(error)
         creds = None
@@ -128,6 +135,11 @@ def _call_go_exec(
         raise RuntimeError(f"internal error (no Go exec): {error}") from error
     except subprocess.CalledProcessError as error:
         raise RuntimeError(f"internal error (Go exec failed): {error}") from error
+
+
+def ConfigureLogger(new_logger: logging.Logger):
+    global logger
+    logger = new_logger
 
 
 class Folder:
