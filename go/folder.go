@@ -120,11 +120,11 @@ func (me *Folder) Upload(ctx context.Context, instanceID, backupID, name, haMeta
 		defer file.Close()
 
 		for i := uint32(0); i < chunks; i += 1 {
-			name := makeFileName(baseName, extendedSuffix(instanceID, backupID, makeChunkSuffix(i)))
+			chunkName := makeFileName(baseName, extendedSuffix(instanceID, backupID, makeChunkSuffix(i)))
 			reader := io.NewSectionReader(file, int64(i)*chunkMaxSize, int64(chunkMaxSize))
-			_, _, err = me.client.drive.UploadFileByReader(ctx, me.LinkID, name, time.Now(), reader, 0)
+			_, _, err = me.client.drive.UploadFileByReader(ctx, me.LinkID, chunkName, time.Now(), reader, 0)
 			if err != nil {
-				return fmt.Errorf("failed to upload metadata for backup %q: %w", name, err)
+				return fmt.Errorf("failed to upload metadata for backup %q: %w", chunkName, err)
 			}
 		}
 	} else {
@@ -249,17 +249,17 @@ func (me *Folder) Delete(ctx context.Context, instanceID, backupID string) error
 		return err
 	}
 
-	archiveSuffix := extendedSuffix(instanceID, backupID, archiveSuffix)
-	metadataSuffix := extendedSuffix(instanceID, backupID, metadataSuffix)
+	archiveBackupSuffix := extendedSuffix(instanceID, backupID, archiveSuffix)
+	metadataBackupSuffix := extendedSuffix(instanceID, backupID, metadataSuffix)
 
 	linkIDsToDelete := map[string]string{}
 	var metadataLink *proton.Link
 
 	for _, file := range files {
 		switch {
-		case strings.HasSuffix(file.Name, archiveSuffix): // fallback for legacy backups
+		case strings.HasSuffix(file.Name, archiveBackupSuffix): // fallback for legacy backups
 			linkIDsToDelete[file.Link.LinkID] = file.Name
-		case strings.HasSuffix(file.Name, metadataSuffix):
+		case strings.HasSuffix(file.Name, metadataBackupSuffix):
 			linkIDsToDelete[file.Link.LinkID] = file.Name
 			metadataLink = file.Link
 		}
@@ -280,7 +280,7 @@ func (me *Folder) Delete(ctx context.Context, instanceID, backupID string) error
 				filesMap[file.Name] = file.Link
 			}
 
-			archiveFileName := makeFileName(metadata.BaseName, extendedSuffix(instanceID, backupID, archiveSuffix))
+			archiveFileName := makeFileName(metadata.BaseName, extendedSuffix(instanceID, backupID, archiveBackupSuffix))
 			if link, found := filesMap[archiveFileName]; found {
 				linkIDsToDelete[link.LinkID] = link.Name
 			}
