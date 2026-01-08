@@ -40,6 +40,14 @@ class _Result:
 OnAuthChange = Callable[[Credentials], None]
 
 
+def _redact_string(s: str, to_redact: List[str]) -> str:
+    out = s
+    for item in to_redact:
+        if item != "":
+            out = out.replace(item, "<REDACTED>")
+    return out
+
+
 def _get_redacted_args(
     args: List[str],
     *,
@@ -49,32 +57,26 @@ def _get_redacted_args(
     mfa: str,
 ) -> str:
     debug_args = " ".join(args)
-    if username != "":
-        debug_args = debug_args.replace(username, "<REDACTED>")
-    if password != "":
-        debug_args = debug_args.replace(password, "<REDACTED>")
-    if mfa != "":
-        debug_args = debug_args.replace(mfa, "<REDACTED>")
-    if creds is not None:
-        debug_args = debug_args.replace(creds.UID, "<REDACTED>")
-        debug_args = debug_args.replace(creds.AccessToken, "<REDACTED>")
-        debug_args = debug_args.replace(creds.RefreshToken, "<REDACTED>")
-        debug_args = debug_args.replace(creds.SaltedKeyPass, "<REDACTED>")
-    return debug_args
+    return _redact_string(
+        debug_args,
+        [username, password, mfa]
+        + [creds.UID, creds.AccessToken, creds.RefreshToken, creds.SaltedKeyPass]
+        if creds is not None
+        else [],
+    )
 
 
 def _get_redacted_output(output: str, output_dict: dict) -> str:
     redacted_output = output
     if (creds_data := output_dict.get("creds")) is not None:
-        redacted_output = redacted_output.replace(creds_data["UID"], "<REDACTED>")
-        redacted_output = redacted_output.replace(
-            creds_data["AccessToken"], "<REDACTED>"
-        )
-        redacted_output = redacted_output.replace(
-            creds_data["RefreshToken"], "<REDACTED>"
-        )
-        redacted_output = redacted_output.replace(
-            creds_data["SaltedKeyPass"], "<REDACTED>"
+        redacted_output = _redact_string(
+            redacted_output,
+            [
+                creds_data["UID"],
+                creds_data["AccessToken"],
+                creds_data["RefreshToken"],
+                creds_data["SaltedKeyPass"],
+            ],
         )
     return redacted_output
 
