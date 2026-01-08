@@ -1,19 +1,30 @@
+WITH_VIRTUALENV ?= yes
+PIP_CMD = venv/bin/pip
+PY_CMD = venv/bin/python
+
+ifneq ($(WITH_VIRTUALENV),yes)
+PIP_CMD := pip3
+PY_CMD := python3
+endif
+
 all: vet lint format
 .PHONY: all
 
 venv:
-	virtualenv venv
+	if [ ! -d venv ]; then \
+	  $(PY_CMD) -m venv venv; \
+	fi
 
 install: venv
-	venv/bin/pip install -r requirements-dev.txt
+	$(PIP_CMD) install -r requirements-dev.txt
 .PHONY: install
 
 lint: install
-	venv/bin/python -m ruff check .
+	$(PY_CMD) -m ruff check .
 .PHONY: lint
 
 format: install
-	venv/bin/python -m ruff format . --check
+	$(PY_CMD) -m ruff format . --check
 .PHONY: format
 
 download:
@@ -27,7 +38,7 @@ vet: download
 .PHONY: vet
 
 dev:
-	GOOS=linux GOARCH=arm64 venv/bin/python -m build
+	GOOS=linux GOARCH=arm64 $(PY_CMD) -m build
 	mkdir -p ../ha-proton-drive/gopy-wheels
 	cp dist/gopy_ha_proton_drive-*-py3-none-manylinux2014_aarch64.whl ../ha-proton-drive/gopy-wheels/
 .PHONY: dev
