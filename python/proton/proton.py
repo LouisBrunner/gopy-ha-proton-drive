@@ -93,7 +93,17 @@ def _call_go_exec(
     if mfa != "":
         args.extend(["--mfa", mfa])
     try:
-        logger.debug(f"Executing {_go_exec} {' '.join(args)}")
+        debug_args = " ".join(args)
+        if username != "":
+            debug_args = debug_args.replace(username, "<REDACTED>")
+        if password != "":
+            debug_args = debug_args.replace(password, "<REDACTED>")
+        if creds is not None:
+            debug_args = debug_args.replace(creds.AccessToken, "<REDACTED>")
+            debug_args = debug_args.replace(creds.RefreshToken, "<REDACTED>")
+            debug_args = debug_args.replace(creds.SaltedKeyPass, "<REDACTED>")
+        logger.debug(f"Executing {_go_exec} {debug_args}")
+
         res = subprocess.run(
             args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
