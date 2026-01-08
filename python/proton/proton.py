@@ -98,7 +98,10 @@ def _call_go_exec(
             debug_args = debug_args.replace(username, "<REDACTED>")
         if password != "":
             debug_args = debug_args.replace(password, "<REDACTED>")
+        if mfa != "":
+            debug_args = debug_args.replace(mfa, "<REDACTED>")
         if creds is not None:
+            debug_args = debug_args.replace(creds.UID, "<REDACTED>")
             debug_args = debug_args.replace(creds.AccessToken, "<REDACTED>")
             debug_args = debug_args.replace(creds.RefreshToken, "<REDACTED>")
             debug_args = debug_args.replace(creds.SaltedKeyPass, "<REDACTED>")
