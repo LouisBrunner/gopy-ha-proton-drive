@@ -111,16 +111,27 @@ def _call_go_exec(
             args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         output = res.stdout.decode("utf-8")
-        logger.debug(f"Output: {output.strip()}")
         log_lines = res.stderr.decode("utf-8").splitlines()
         for line in log_lines:
             logger.debug(line)
 
         output_dict = json.loads(output)
+        redacted_output = output.strip()
+
         if (error := output_dict.get("error")) is not None:
             raise RuntimeError(error)
         creds = None
         if (creds_data := output_dict.get("creds")) is not None:
+            redacted_output = redacted_output.replace(creds_data["UID"], "<REDACTED>")
+            redacted_output = redacted_output.replace(
+                creds_data["AccessToken"], "<REDACTED>"
+            )
+            redacted_output = redacted_output.replace(
+                creds_data["RefreshToken"], "<REDACTED>"
+            )
+            redacted_output = redacted_output.replace(
+                creds_data["SaltedKeyPass"], "<REDACTED>"
+            )
             creds = Credentials(
                 UID=creds_data["UID"],
                 AccessToken=creds_data["AccessToken"],
@@ -135,6 +146,7 @@ def _call_go_exec(
                 Share(ShareID=share["ShareID"], Name=share["Name"])
                 for share in shares_data
             ]
+        logger.debug(f"Output: {redacted_output}")
         res = _Result(
             Creds=creds,
             LinkID=output_dict.get("link_id"),
