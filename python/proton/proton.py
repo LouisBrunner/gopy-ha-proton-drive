@@ -31,7 +31,6 @@ class Share:
 @dataclass
 class _Result:
     Creds: Optional[Credentials]
-    LinkID: Optional[str]
     DownloadedPath: Optional[str]
     Shares: Optional[List[Share]]
     Metadata: Optional[List[str]]
@@ -86,7 +85,6 @@ def _get_redacted_output(output: str, output_dict: dict) -> str:
 def _get_redacted_res(res: _Result) -> str:
     redacted_res = _Result(
         Creds=None,
-        LinkID=res.LinkID,
         DownloadedPath=res.DownloadedPath,
         Shares=res.Shares,
         Metadata=res.Metadata,
@@ -104,7 +102,6 @@ def _get_redacted_res(res: _Result) -> str:
 def _call_go_exec(
     *commands: str,
     creds: Optional[Credentials] = None,
-    link_id: str = "",
     instance_id: str = "",
     backup_id: str = "",
     name: str = "",
@@ -131,8 +128,6 @@ def _call_go_exec(
                 creds.SaltedKeyPass,
             ]
         )
-    if link_id != "":
-        args.extend(["--link-id", link_id])
     if instance_id != "":
         args.extend(["--instance-id", instance_id])
     if backup_id != "":
@@ -189,7 +184,6 @@ def _call_go_exec(
             ]
         res = _Result(
             Creds=creds,
-            LinkID=output_dict.get("link_id"),
             DownloadedPath=output_dict.get("downloaded_path"),
             Shares=shares,
             Metadata=output_dict.get("metadata"),
@@ -223,16 +217,24 @@ class Folder:
         self._client = client
         self._root_folder = root_folder
 
-    def FindBackup(self, instanceID: str, backupID: str) -> str:
+    def Download(self, instanceID: str, backupID: str) -> str:
         res = self._client._exec(
-            "find",
+            "download",
             root_folder=self._root_folder,
             instance_id=instanceID,
             backup_id=backupID,
         )
-        if res.LinkID is None:
-            raise RuntimeError("internal error: wrong result in FindBackup")
-        return res.LinkID
+        if res.DownloadedPath is None:
+            raise RuntimeError("internal error: wrong result in DownloadFile")
+        return res.DownloadedPath
+
+    def Delete(self, instanceID: str, backupID: str) -> None:
+        self._client._exec(
+            "delete",
+            root_folder=self._root_folder,
+            instance_id=instanceID,
+            backup_id=backupID,
+        )
 
     def Upload(
         self,
@@ -273,21 +275,6 @@ class Client:
         self._on_auth_change = on_auth_change
         self._share_id = ""
         self._exec("check")
-
-    def DownloadFile(self, linkID: str) -> str:
-        res = self._exec(
-            "download",
-            link_id=linkID,
-        )
-        if res.DownloadedPath is None:
-            raise RuntimeError("internal error: wrong result in DownloadFile")
-        return res.DownloadedPath
-
-    def DeleteFile(self, linkID: str) -> None:
-        self._exec(
-            "delete",
-            link_id=linkID,
-        )
 
     def MakeRootFolder(self, path: str) -> Folder:
         return Folder(client=self, root_folder=path)

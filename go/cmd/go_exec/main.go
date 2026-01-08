@@ -16,8 +16,6 @@ import (
 type result struct {
 	// Updated on login or if the auth changes, always check it!
 	Creds *proton.Credentials `json:"creds"`
-	// Provided on `find`
-	LinkID *string `json:"link_id"`
 	// Provided on `download`
 	DownloadedPath *string `json:"downloaded_path"`
 	// Provided on `list-shares`
@@ -119,16 +117,20 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 						Name: "download",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
-								Name:     "link-id",
+								Name:     "instance-id",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:     "backup-id",
 								Required: true,
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							client, _, err := prepareClient(ctx, logger, cmd, credUpdater)
+							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater)
 							if err != nil {
 								return err
 							}
-							path, err := client.DownloadFile(ctx, cmd.String("link-id"))
+							path, err := folder.Download(ctx, cmd.String("instance-id"), cmd.String("backup-id"))
 							if err != nil {
 								return err
 							}
@@ -138,22 +140,6 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 					},
 					{
 						Name: "delete",
-						Flags: []cli.Flag{
-							&cli.StringFlag{
-								Name:     "link-id",
-								Required: true,
-							},
-						},
-						Action: func(ctx context.Context, cmd *cli.Command) error {
-							client, _, err := prepareClient(ctx, logger, cmd, credUpdater)
-							if err != nil {
-								return err
-							}
-							return client.DeleteFile(ctx, cmd.String("link-id"))
-						},
-					},
-					{
-						Name: "find",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:     "instance-id",
@@ -169,12 +155,7 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 							if err != nil {
 								return err
 							}
-							linkID, err := folder.FindBackup(ctx, cmd.String("instance-id"), cmd.String("backup-id"))
-							if err != nil {
-								return err
-							}
-							res.LinkID = &linkID
-							return nil
+							return folder.Delete(ctx, cmd.String("instance-id"), cmd.String("backup-id"))
 						},
 					},
 					{
