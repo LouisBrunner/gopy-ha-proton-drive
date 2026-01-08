@@ -12,7 +12,7 @@ all: vet lint format
 
 venv:
 	if [ ! -d venv ]; then \
-	  $(PY_CMD) -m venv venv; \
+	  python3 -m venv venv; \
 	fi
 
 install: venv

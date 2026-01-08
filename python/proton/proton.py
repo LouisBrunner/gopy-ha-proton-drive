@@ -60,9 +60,11 @@ def _get_redacted_args(
     return _redact_string(
         debug_args,
         [username, password, mfa]
-        + [creds.UID, creds.AccessToken, creds.RefreshToken, creds.SaltedKeyPass]
-        if creds is not None
-        else [],
+        + (
+            [creds.UID, creds.AccessToken, creds.RefreshToken, creds.SaltedKeyPass]
+            if creds is not None
+            else []
+        ),
     )
 
 
