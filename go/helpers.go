@@ -125,12 +125,12 @@ func (me *Client) downloadFile(ctx context.Context, parentLinkID, filename strin
 	return reader, nil
 }
 
-func (me *Client) retrier(ctx context.Context, attemps int, fn func() error) error {
-	if attemps <= 0 {
-		attemps = 1
+func (me *Client) retrier(ctx context.Context, attempts int, fn func() error) error {
+	if attempts <= 0 {
+		attempts = 1
 	}
 	var lastErr error
-	for i := 1; i <= attemps; i += 1 {
+	for i := 1; i <= attempts; i += 1 {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -138,7 +138,11 @@ func (me *Client) retrier(ctx context.Context, attemps int, fn func() error) err
 		if lastErr == nil {
 			return nil
 		}
-		me.logger.WithError(lastErr).Warnf("operation failed, retrying (%d/%d)", i, attemps)
+		action := "retrying"
+		if i == attempts {
+			action = "giving up"
+		}
+		me.logger.WithError(lastErr).Warnf("operation failed, %s (%d/%d)", action, i, attempts)
 	}
 	return lastErr
 }

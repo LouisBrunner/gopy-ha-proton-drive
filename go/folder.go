@@ -114,8 +114,8 @@ func (me *Folder) Upload(ctx context.Context, instanceID, backupID, name, haMeta
 
 		for i := uint32(0); i < chunks; i += 1 {
 			chunkName := makeFileName(baseName, extendedSuffix(instanceID, backupID, makeChunkSuffix(i)))
-			reader := io.NewSectionReader(file, int64(i)*int64(me.client.uploadChunkSizeBytes), int64(me.client.uploadChunkSizeBytes))
 			err := me.client.retrier(ctx, me.client.uploadTries, func() error {
+				reader := io.NewSectionReader(file, int64(i)*int64(me.client.uploadChunkSizeBytes), int64(me.client.uploadChunkSizeBytes))
 				_, _, err := me.client.drive.UploadFileByReader(ctx, me.LinkID, chunkName, time.Now(), reader, 0)
 				return err
 			})

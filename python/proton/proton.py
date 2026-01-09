@@ -255,7 +255,7 @@ class Folder:
         contentPath: str,
         *,
         max_tries: int = 0,
-        chunk_size_bytes: int,
+        chunk_size_bytes: int = 0,
     ) -> None:
         self._client._exec(
             "upload",
