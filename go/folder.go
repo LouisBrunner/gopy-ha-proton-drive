@@ -14,10 +14,6 @@ import (
 	"github.com/henrybear327/go-proton-api"
 )
 
-const (
-	chunkMaxSize = 2 * 1024 * 1024 * 1024 // 2 GB
-)
-
 func (me *Client) MakeRootFolder(ctx context.Context, path string) (*Folder, error) {
 	folders := strings.Split(path, "/")
 	currentFolder := me.drive.RootLink
@@ -88,10 +84,7 @@ func (me *Folder) Upload(ctx context.Context, instanceID, backupID, name, haMeta
 	}
 
 	fileSize := fstat.Size()
-	chunks := uint32(fileSize) / chunkMaxSize
-	if fileSize%chunkMaxSize != 0 {
-		chunks += 1
-	}
+	chunks := me.client.calcChunks(uint64(fileSize), me.client.uploadChunkSizeBytes)
 
 	metadataJSON, err := json.Marshal(Metadata{
 		MetadataHeader: MetadataHeader{
@@ -121,18 +114,26 @@ func (me *Folder) Upload(ctx context.Context, instanceID, backupID, name, haMeta
 
 		for i := uint32(0); i < chunks; i += 1 {
 			chunkName := makeFileName(baseName, extendedSuffix(instanceID, backupID, makeChunkSuffix(i)))
-			reader := io.NewSectionReader(file, int64(i)*chunkMaxSize, int64(chunkMaxSize))
-			_, _, err = me.client.drive.UploadFileByReader(ctx, me.LinkID, chunkName, time.Now(), reader, 0)
+			reader := io.NewSectionReader(file, int64(i)*int64(me.client.uploadChunkSizeBytes), int64(me.client.uploadChunkSizeBytes))
+			err := me.client.retrier(ctx, me.client.uploadTries, func() error {
+				_, _, err := me.client.drive.UploadFileByReader(ctx, me.LinkID, chunkName, time.Now(), reader, 0)
+				return err
+			})
 			if err != nil {
-				return fmt.Errorf("failed to upload metadata for backup %q: %w", chunkName, err)
+				return fmt.Errorf("failed to upload backup part %q: %w", chunkName, err)
 			}
 		}
 	} else {
-		_, _, err = me.client.drive.UploadFileByPath(ctx, me.Link, archiveName, contentPath, 0)
+		err := me.client.retrier(ctx, me.client.uploadTries, func() error {
+			_, _, err := me.client.drive.UploadFileByPath(ctx, me.Link, archiveName, contentPath, 0)
+			return err
+		})
 		if err != nil {
 			return fmt.Errorf("failed to upload backup %q: %w", name, err)
 		}
 	}
+
+	// TODO: on failure we should clean up the uploaded files
 
 	return nil
 }
@@ -151,6 +152,7 @@ func (me *Folder) ListFilesMetadata(ctx context.Context, instanceID string) ([]s
 			continue
 		}
 
+		me.client.logger.Infof("reading metadata file %q", file.Name)
 		_, haMetadataJSON, err := me.client.readMetadata(ctx, file.Link)
 		if err != nil {
 			me.client.logger.WithError(err).Errorf("failed to read metadata file %q", file.Name)

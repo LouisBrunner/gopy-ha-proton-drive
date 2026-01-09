@@ -124,3 +124,32 @@ func (me *Client) downloadFile(ctx context.Context, parentLinkID, filename strin
 
 	return reader, nil
 }
+
+func (me *Client) retrier(ctx context.Context, attemps int, fn func() error) error {
+	if attemps <= 0 {
+		attemps = 1
+	}
+	var lastErr error
+	for i := 1; i <= attemps; i += 1 {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		lastErr = fn()
+		if lastErr == nil {
+			return nil
+		}
+		me.logger.WithError(lastErr).Warnf("operation failed, retrying (%d/%d)", i, attemps)
+	}
+	return lastErr
+}
+
+func (me *Client) calcChunks(size, chunkSize uint64) uint32 {
+	if chunkSize == 0 {
+		return 1
+	}
+	chunks := size / chunkSize
+	if size%chunkSize != 0 {
+		chunks += 1
+	}
+	return uint32(chunks)
+}

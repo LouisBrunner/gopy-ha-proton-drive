@@ -24,13 +24,22 @@ type result struct {
 	Metadata []string `json:"metadata"`
 }
 
-func prepareClient(ctx context.Context, logger *logrus.Logger, cmd *cli.Command, onAuthChange proton.OnAuthChange) (*proton.Client, *proton.Folder, error) {
-	client, err := proton.NewClient(ctx, logger, proton.Credentials{
-		UID:           cmd.String("uid"),
-		AccessToken:   cmd.String("access-token"),
-		RefreshToken:  cmd.String("refresh-token"),
-		SaltedKeyPass: cmd.String("salted-key-pass"),
-	}, onAuthChange)
+func prepareClient(ctx context.Context, logger *logrus.Logger, cmd *cli.Command, onAuthChange proton.OnAuthChange, partialOpts *proton.ClientOptions) (*proton.Client, *proton.Folder, error) {
+	if partialOpts == nil {
+		partialOpts = &proton.ClientOptions{}
+	}
+	client, err := proton.NewClient(ctx, proton.ClientOptions{
+		Logger: logger,
+		Credentials: proton.Credentials{
+			UID:           cmd.String("uid"),
+			AccessToken:   cmd.String("access-token"),
+			RefreshToken:  cmd.String("refresh-token"),
+			SaltedKeyPass: cmd.String("salted-key-pass"),
+		},
+		OnAuthChange:         onAuthChange,
+		MaxUploadTries:       partialOpts.MaxUploadTries,
+		UploadChunkSizeBytes: partialOpts.UploadChunkSizeBytes,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -109,7 +118,7 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 					{
 						Name: "check",
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							_, _, err := prepareClient(ctx, logger, cmd, credUpdater)
+							_, _, err := prepareClient(ctx, logger, cmd, credUpdater, nil)
 							return err
 						},
 					},
@@ -126,7 +135,7 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater)
+							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater, nil)
 							if err != nil {
 								return err
 							}
@@ -151,7 +160,7 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater)
+							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater, nil)
 							if err != nil {
 								return err
 							}
@@ -181,9 +190,20 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 								Name:     "content-path",
 								Required: true,
 							},
+							&cli.Uint64Flag{
+								Name:  "chunk-size",
+								Usage: "Upload chunk size in bytes",
+							},
+							&cli.IntFlag{
+								Name:  "max-tries",
+								Usage: "Maximum number of tries for each chunk upload",
+							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater)
+							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater, &proton.ClientOptions{
+								MaxUploadTries:       cmd.Int("max-tries"),
+								UploadChunkSizeBytes: cmd.Uint64("chunk-size"),
+							})
 							if err != nil {
 								return err
 							}
@@ -199,7 +219,7 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater)
+							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater, nil)
 							if err != nil {
 								return err
 							}
@@ -210,7 +230,7 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 					{
 						Name: "list-shares",
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							client, _, err := prepareClient(ctx, logger, cmd, credUpdater)
+							client, _, err := prepareClient(ctx, logger, cmd, credUpdater, nil)
 							if err != nil {
 								return err
 							}

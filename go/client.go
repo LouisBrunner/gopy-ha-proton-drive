@@ -10,9 +10,11 @@ import (
 )
 
 type Client struct {
-	drive  *proton_api_bridge.ProtonDrive
-	client *proton.Client
-	logger *logrus.Logger
+	drive                *proton_api_bridge.ProtonDrive
+	client               *proton.Client
+	logger               *logrus.Logger
+	uploadTries          int
+	uploadChunkSizeBytes uint64
 }
 
 type Credentials common.ProtonDriveCredential
@@ -42,26 +44,34 @@ func Login(ctx context.Context, username, password, mfa string) (*Credentials, e
 
 type OnAuthChange func(creds Credentials)
 
-func NewClient(ctx context.Context, logger *logrus.Logger, creds Credentials, onAuthChange OnAuthChange) (*Client, error) {
+type ClientOptions struct {
+	Logger               *logrus.Logger
+	Credentials          Credentials
+	OnAuthChange         OnAuthChange
+	MaxUploadTries       int
+	UploadChunkSizeBytes uint64
+}
+
+func NewClient(ctx context.Context, opts ClientOptions) (*Client, error) {
 	config := getConfig()
 	config.UseReusableLogin = true
-	config.ReusableCredential.UID = creds.UID
-	config.ReusableCredential.AccessToken = creds.AccessToken
-	config.ReusableCredential.RefreshToken = creds.RefreshToken
-	config.ReusableCredential.SaltedKeyPass = creds.SaltedKeyPass
+	config.ReusableCredential.UID = opts.Credentials.UID
+	config.ReusableCredential.AccessToken = opts.Credentials.AccessToken
+	config.ReusableCredential.RefreshToken = opts.Credentials.RefreshToken
+	config.ReusableCredential.SaltedKeyPass = opts.Credentials.SaltedKeyPass
 
 	drive, _, err := proton_api_bridge.NewProtonDrive(ctx, config, func(a proton.Auth) {
 		config.ReusableCredential.UID = a.UID
 		config.ReusableCredential.AccessToken = a.AccessToken
 		config.ReusableCredential.RefreshToken = a.RefreshToken
-		if onAuthChange == nil {
+		if opts.OnAuthChange == nil {
 			return
 		}
-		onAuthChange(Credentials{
+		opts.OnAuthChange(Credentials{
 			UID:           a.UID,
 			AccessToken:   a.AccessToken,
 			RefreshToken:  a.RefreshToken,
-			SaltedKeyPass: creds.SaltedKeyPass,
+			SaltedKeyPass: opts.Credentials.SaltedKeyPass,
 		})
 	}, func() {})
 	if err != nil {
@@ -74,8 +84,10 @@ func NewClient(ctx context.Context, logger *logrus.Logger, creds Credentials, on
 	).NewClient(config.ReusableCredential.UID, config.ReusableCredential.AccessToken, config.ReusableCredential.RefreshToken)
 
 	return &Client{
-		drive:  drive,
-		client: realClient,
-		logger: logger,
+		drive:                drive,
+		client:               realClient,
+		logger:               opts.Logger,
+		uploadTries:          opts.MaxUploadTries,
+		uploadChunkSizeBytes: opts.UploadChunkSizeBytes,
 	}, nil
 }

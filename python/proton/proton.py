@@ -112,6 +112,8 @@ def _call_go_exec(
     username: str = "",
     password: str = "",
     mfa: str = "",
+    upload_retries: int = 0,
+    upload_chunk_size_bytes: int = 0,
     on_auth_change: Optional[OnAuthChange] = None,
 ) -> _Result:
     args = [str(_go_exec), *commands]
@@ -148,6 +150,10 @@ def _call_go_exec(
         args.extend(["--password", password])
     if mfa != "":
         args.extend(["--mfa", mfa])
+    if upload_retries > 0:
+        args.extend(["--max-tries", str(upload_retries)])
+    if upload_chunk_size_bytes > 0:
+        args.extend(["--chunk-size", str(upload_chunk_size_bytes)])
     try:
         logger.debug(
             f"Executing {_go_exec} {_get_redacted_args(args[1:], creds=creds, username=username, password=password, mfa=mfa)}"
@@ -217,7 +223,11 @@ class Folder:
         self._client = client
         self._root_folder = root_folder
 
-    def Download(self, instanceID: str, backupID: str) -> str:
+    def Download(
+        self,
+        instanceID: str,
+        backupID: str,
+    ) -> str:
         res = self._client._exec(
             "download",
             root_folder=self._root_folder,
@@ -243,6 +253,9 @@ class Folder:
         name: str,
         metadataJSON: str,
         contentPath: str,
+        *,
+        max_tries: int = 0,
+        chunk_size_bytes: int,
     ) -> None:
         self._client._exec(
             "upload",
@@ -252,6 +265,8 @@ class Folder:
             name=name,
             metadata_json=metadataJSON,
             content_path=contentPath,
+            upload_retries=max_tries,
+            upload_chunk_size_bytes=chunk_size_bytes,
         )
 
     def ListFilesMetadata(self, instanceID: str) -> List[str]:
