@@ -1,4 +1,4 @@
-package proton
+package client
 
 import (
 	"encoding/json"
