@@ -19,6 +19,7 @@ import (
 
 	"github.com/ProtonMail/go-proton-api"
 	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/go-resty/resty/v2"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
@@ -337,12 +338,12 @@ func (me *batchUploader) flush(ctx context.Context, flush bool) error {
 	g := new(errgroup.Group)
 	for i := range res {
 		block := res[i]
-		data := bytes.NewReader(me.batch[i].encData)
+		data := me.batch[i].encData
 		g.Go(func() error {
 			sem.Acquire(ctx, 1)
 			defer sem.Release(1)
 
-			return me.ext.client.UploadBlock(ctx, block.BareURL, block.Token, data)
+			return me.ext.client.UploadBlock(ctx, block.BareURL, block.Token, resty.NewByteMultipartStream(data))
 		})
 	}
 
