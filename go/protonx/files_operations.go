@@ -31,7 +31,7 @@ func (me *Extension) ListDirectory(ctx context.Context, folderLinkID string) ([]
 	}
 
 	if childrenLinks != nil {
-		folderLinkKR, err := me.fetchKRForLink(ctx, folderLink)
+		folderLinkKR, err := me.getLinkKR(ctx, folderLink)
 		if err != nil {
 			return nil, err
 		}

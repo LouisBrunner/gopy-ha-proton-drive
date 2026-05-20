@@ -119,7 +119,7 @@ func (me *Extension) findInFolder(ctx context.Context, folderLink *proton.Link, 
 		return nil, nil
 	}
 
-	folderLinkKR, err := me.fetchKRForLink(ctx, folderLink)
+	folderLinkKR, err := me.getLinkKR(ctx, folderLink)
 	if err != nil {
 		return nil, err
 	}
