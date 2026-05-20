@@ -30,31 +30,29 @@ func (me *Extension) ListDirectory(ctx context.Context, folderLinkID string) ([]
 		return nil, err
 	}
 
-	if childrenLinks != nil {
-		folderLinkKR, err := me.getLinkKR(ctx, folderLink)
+	folderLinkKR, err := me.getLinkKR(ctx, folderLink)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range childrenLinks {
+		if childrenLinks[i].State != proton.LinkStateActive {
+			continue
+		}
+
+		signatureVerificationKR, err := me.buildKeyring([]string{childrenLinks[i].NameSignatureEmail, childrenLinks[i].SignatureEmail})
 		if err != nil {
 			return nil, err
 		}
-
-		for i := range childrenLinks {
-			if childrenLinks[i].State != proton.LinkStateActive {
-				continue
-			}
-
-			signatureVerificationKR, err := me.buildKeyring([]string{childrenLinks[i].NameSignatureEmail, childrenLinks[i].SignatureEmail})
-			if err != nil {
-				return nil, err
-			}
-			name, err := childrenLinks[i].GetName(folderLinkKR, signatureVerificationKR)
-			if err != nil {
-				return nil, err
-			}
-			ret = append(ret, &DirEntry{
-				Link:     &childrenLinks[i],
-				Name:     name,
-				IsFolder: childrenLinks[i].Type == proton.LinkTypeFolder,
-			})
+		name, err := childrenLinks[i].GetName(folderLinkKR, signatureVerificationKR)
+		if err != nil {
+			return nil, err
 		}
+		ret = append(ret, &DirEntry{
+			Link:     &childrenLinks[i],
+			Name:     name,
+			IsFolder: childrenLinks[i].Type == proton.LinkTypeFolder,
+		})
 	}
 	return ret, nil
 }
