@@ -8,7 +8,7 @@ import (
 	"github.com/ProtonMail/gopenpgp/v2/crypto"
 )
 
-func (me *Extension) GetLink(ctx context.Context, linkID string) (*proton.Link, error) {
+func (me *Extension) GetLink(ctx context.Context, linkID string, shareID ...string) (*proton.Link, error) {
 	if linkID == "" {
 		return nil, fmt.Errorf("invalid linkID")
 	}
@@ -19,7 +19,11 @@ func (me *Extension) GetLink(ctx context.Context, linkID string) (*proton.Link, 
 	}
 
 	// no cached data, fetch
-	link, err := me.client.GetLink(ctx, me.getShareID(), linkID)
+	usedShareID := me.getShareID()
+	if len(shareID) > 0 {
+		usedShareID = shareID[0]
+	}
+	link, err := me.client.GetLink(ctx, usedShareID, linkID)
 	if err != nil {
 		return nil, err
 	}

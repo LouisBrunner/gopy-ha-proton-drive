@@ -45,7 +45,7 @@ func (me *Extension) FetchShare(ctx context.Context, shareID string) (*Share, er
 		return nil, fmt.Errorf("failed to get keyring for share %q: %w", shareID, err)
 	}
 
-	folder, err := me.client.GetLink(ctx, share.ShareID, share.LinkID)
+	folder, err := me.GetLink(ctx, share.LinkID, share.ShareID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get folder for share %q: %w", shareID, err)
 	}
@@ -54,6 +54,6 @@ func (me *Extension) FetchShare(ctx context.Context, shareID string) (*Share, er
 		Share:      &share,
 		Keyring:    keyring,
 		AddrKR:     shareAddrKR,
-		RootFolder: &folder,
+		RootFolder: folder,
 	}, nil
 }
