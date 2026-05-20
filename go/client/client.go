@@ -90,7 +90,7 @@ func New(ctx context.Context, opts Options) (*Client, error) {
 			}
 		}
 		if !mainShareValid {
-			return nil, fmt.Errorf("main share %q failed integrity check: not a primary main share", opts.ShareID)
+			return nil, fmt.Errorf("main share %q failed integrity check: not a primary main share", shareID)
 		}
 	}
 
