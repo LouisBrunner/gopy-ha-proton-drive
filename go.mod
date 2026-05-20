@@ -2,7 +2,7 @@ module github.com/LouisBrunner/gopy-ha-proton-drive
 
 go 1.26.1
 
-replace github.com/ProtonMail/go-proton-api => ../go-proton-api
+replace github.com/ProtonMail/go-proton-api => github.com/LouisBrunner/go-proton-api v0.0.0-20260519234932-f15aaee4585c
 
 replace github.com/go-resty/resty/v2 => github.com/ProtonMail/resty/v2 v2.0.0-20250929142426-e3dc6308c80b
 
