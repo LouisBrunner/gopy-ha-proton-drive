@@ -340,7 +340,10 @@ func (me *batchUploader) flush(ctx context.Context, flush bool) error {
 		block := res[i]
 		data := me.batch[i].encData
 		g.Go(func() error {
-			sem.Acquire(ctx, 1)
+			err := sem.Acquire(ctx, 1)
+			if err != nil {
+				return err
+			}
 			defer sem.Release(1)
 
 			return me.ext.client.UploadBlock(ctx, block.BareURL, block.Token, resty.NewByteMultipartStream(data))
