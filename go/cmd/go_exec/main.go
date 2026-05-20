@@ -3,34 +3,42 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
-	proton "github.com/LouisBrunner/gopy-ha-proton-drive/go"
+	"github.com/LouisBrunner/gopy-ha-proton-drive/go/client"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
 
 type result struct {
 	// Updated on login or if the auth changes, always check it!
-	Creds *proton.Credentials `json:"creds"`
+	Creds *client.Credentials `json:"creds"`
 	// Provided on `download`
 	DownloadedPath *string `json:"downloaded_path"`
 	// Provided on `list-shares`
-	Shares []proton.Share `json:"shares"`
+	Shares []client.Share `json:"shares"`
 	// Provided on `list-metadata`
 	Metadata []string `json:"metadata"`
+	// Set on failure
+	Error *resultError `json:"error,omitempty"`
 }
 
-func prepareClient(ctx context.Context, logger *logrus.Logger, cmd *cli.Command, onAuthChange proton.OnAuthChange, partialOpts *proton.ClientOptions) (*proton.Client, *proton.Folder, error) {
+type resultError struct {
+	Message string `json:"message"`
+	Code    string `json:"code"`
+}
+
+func prepareClient(ctx context.Context, logger *logrus.Logger, cmd *cli.Command, onAuthChange client.OnAuthChange, partialOpts *client.Options) (*client.Client, *client.Folder, error) {
 	if partialOpts == nil {
-		partialOpts = &proton.ClientOptions{}
+		partialOpts = &client.Options{}
 	}
-	client, err := proton.NewClient(ctx, proton.ClientOptions{
+	clt, err := client.New(ctx, client.Options{
 		Logger: logger,
-		Credentials: proton.Credentials{
+		Credentials: client.Credentials{
 			UID:           cmd.String("uid"),
 			AccessToken:   cmd.String("access-token"),
 			RefreshToken:  cmd.String("refresh-token"),
@@ -39,34 +47,43 @@ func prepareClient(ctx context.Context, logger *logrus.Logger, cmd *cli.Command,
 		OnAuthChange:         onAuthChange,
 		MaxUploadTries:       partialOpts.MaxUploadTries,
 		UploadChunkSizeBytes: partialOpts.UploadChunkSizeBytes,
+		ShareID:              cmd.String("share-id"),
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	shareID := cmd.String("share-id")
-	if shareID != "" {
-		err = client.SelectShare(ctx, shareID)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	rootFolder := cmd.String("root-folder")
-	folder, err := client.MakeRootFolder(ctx, rootFolder)
+	folder, err := clt.MakeRootFolder(ctx, cmd.String("root-folder"))
 	if err != nil {
 		return nil, nil, err
 	}
-	return client, folder, nil
+	return clt, folder, nil
 }
 
 func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, error) {
 	var err error
 	var res result
-	credUpdater := func(newCreds proton.Credentials) {
+	credUpdater := func(newCreds client.Credentials) {
 		logger.Infof("Credentials automatically renewed by Proton")
 		res.Creds = &newCreds
 	}
 
 	cmd := &cli.Command{
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name: "log-level",
+			},
+		},
+		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+			logLevelString := cmd.String("log-level")
+			if logLevelString != "" {
+				logLevel, err := logrus.ParseLevel(logLevelString)
+				if err != nil {
+					return nil, err
+				}
+				logger.SetLevel(logLevel)
+			}
+			return ctx, nil
+		},
 		Commands: []*cli.Command{
 			{
 				Name: "login",
@@ -80,11 +97,23 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 						Required: true,
 					},
 					&cli.StringFlag{
+						Name: "mailbox-password",
+					},
+					&cli.StringFlag{
 						Name: "mfa",
+					},
+					&cli.StringFlag{
+						Name: "captcha-token",
 					},
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					res.Creds, err = proton.Login(ctx, cmd.String("email"), cmd.String("password"), cmd.String("mfa"))
+					res.Creds, err = client.Login(ctx, client.NewManager(logger), client.LoginOptions{
+						Username:        cmd.String("email"),
+						Password:        cmd.String("password"),
+						MailboxPassword: cmd.String("mailbox-password"),
+						TwoFA:           cmd.String("mfa"),
+						CaptchaToken:    cmd.String("captcha-token"),
+					})
 					return err
 				},
 			},
@@ -200,7 +229,7 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater, &proton.ClientOptions{
+							_, folder, err := prepareClient(ctx, logger, cmd, credUpdater, &client.Options{
 								MaxUploadTries:       cmd.Int("max-tries"),
 								UploadChunkSizeBytes: cmd.Uint64("chunk-size"),
 							})
@@ -243,24 +272,33 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 		},
 	}
 
-	err = cmd.Run(ctx, args)
-	if err != nil {
-		return nil, err
-	}
-	return &res, nil
+	return &res, cmd.Run(ctx, args)
 }
 
-func wrapper(ctx context.Context, logger *logrus.Logger, args []string) error {
+func wrapper(ctx context.Context, logger *logrus.Logger, args []string) bool {
 	res, err := work(ctx, logger, args)
-	if err != nil {
-		return err
+	if res == nil {
+		res = &result{}
 	}
-	resJSON, err := json.Marshal(res)
 	if err != nil {
-		return err
+		logger.WithError(err).Error("failed")
+		code := "unknown"
+		switch {
+		case errors.Is(err, client.ErrMFARequired):
+			code = "mfa"
+		case errors.Is(err, client.ErrMailboxPassRequired):
+			code = "two-pass"
+		}
+		res.Error = &resultError{Message: err.Error(), Code: code}
 	}
-	fmt.Println(string(resJSON))
-	return nil
+	resJSON, marshalErr := json.Marshal(res)
+	if marshalErr != nil {
+		// Last resort fallback - marshalling should never fail for this struct
+		fmt.Printf(`{"error":{"message":%q,"code":"unknown"}}`, marshalErr.Error())
+		return false
+	}
+	fmt.Print(string(resJSON))
+	return err == nil
 }
 
 func main() {
@@ -274,9 +312,7 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	err := wrapper(ctx, logger, os.Args)
-	if err != nil {
-		logger.WithError(err).Error("failed")
-		fmt.Printf(`{"error": %q}`, err.Error())
+	if !wrapper(ctx, logger, os.Args) {
+		os.Exit(1)
 	}
 }

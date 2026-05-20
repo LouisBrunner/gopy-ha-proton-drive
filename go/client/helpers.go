@@ -1,4 +1,4 @@
-package proton
+package client
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"io"
 	"strings"
 
-	proton_api_bridge "github.com/henrybear327/Proton-API-Bridge"
-	"github.com/henrybear327/go-proton-api"
+	"github.com/LouisBrunner/gopy-ha-proton-drive/go/protonx"
+	"github.com/ProtonMail/go-proton-api"
 )
 
 const (
@@ -50,7 +50,7 @@ func makeFileName(base, suffix string) string {
 }
 
 func (me *Client) findFileIn(ctx context.Context, parentLinkID, fileName string) (*proton.Link, error) {
-	file, err := me.findFileInFn(ctx, parentLinkID, func(file *proton_api_bridge.ProtonDirectoryData) bool {
+	file, err := me.findFileInFn(ctx, parentLinkID, func(file *protonx.DirEntry) bool {
 		return file.Name == fileName
 	})
 	if err != nil {
@@ -59,8 +59,8 @@ func (me *Client) findFileIn(ctx context.Context, parentLinkID, fileName string)
 	return file.Link, nil
 }
 
-func (me *Client) findFileInFn(ctx context.Context, parentLinkID string, predicate func(file *proton_api_bridge.ProtonDirectoryData) bool) (*proton_api_bridge.ProtonDirectoryData, error) {
-	files, err := me.listFiles(ctx, parentLinkID)
+func (me *Client) findFileInFn(ctx context.Context, parentLinkID string, predicate func(file *protonx.DirEntry) bool) (*protonx.DirEntry, error) {
+	files, err := me.extension.ListDirectory(ctx, parentLinkID)
 	if err != nil {
 		return nil, err
 	}
@@ -73,16 +73,8 @@ func (me *Client) findFileInFn(ctx context.Context, parentLinkID string, predica
 	return nil, errFileNotFound
 }
 
-func (me *Client) listFiles(ctx context.Context, parentLinkID string) ([]*proton_api_bridge.ProtonDirectoryData, error) {
-	files, err := me.drive.ListDirectory(ctx, parentLinkID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list directory: %w", err)
-	}
-	return files, nil
-}
-
 func (me *Client) readFile(ctx context.Context, link *proton.Link, details string) (string, error) {
-	reader, _, _, err := me.drive.DownloadFile(ctx, link, 0)
+	reader, err := me.extension.DownloadFile(ctx, link)
 	if err != nil {
 		return "", fmt.Errorf("failed to download%s: %w", details, err)
 	}
@@ -117,7 +109,7 @@ func (me *Client) downloadFile(ctx context.Context, parentLinkID, filename strin
 		return nil, fmt.Errorf("could not find file %q: %w", filename, err)
 	}
 
-	reader, _, _, err := me.drive.DownloadFile(ctx, file, 0)
+	reader, err := me.extension.DownloadFile(ctx, file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file %q: %w", filename, err)
 	}
