@@ -178,7 +178,7 @@ def _call_go_exec(
         logger.debug(f"Executing {_go_exec} {redacted_args}")
 
         res = subprocess.run(
-            args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            args, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         output = res.stdout.decode("utf-8").strip()
         log_lines = res.stderr.decode("utf-8").splitlines()
@@ -188,14 +188,6 @@ def _call_go_exec(
         output_dict = json.loads(output)
         logger.debug(f"Output: {_get_redacted_output(output, output_dict)}")
 
-        if (error := output_dict.get("error")) is not None:
-            if isinstance(error, dict):
-                code = error.get("code", "unknown")
-                message = error.get("message", "unknown")
-            else:
-                code = "unknown"
-                message = str(error)
-            raise RuntimeError(f"[{code}]: {message}")
         creds = None
         if (creds_data := output_dict.get("creds")) is not None:
             creds = Credentials(
@@ -206,6 +198,21 @@ def _call_go_exec(
             )
             if on_auth_change is not None:
                 on_auth_change(creds)
+
+        if (error := output_dict.get("error")) is not None:
+            if isinstance(error, dict):
+                code = error.get("code", "unknown")
+                message = error.get("message", "unknown")
+            else:
+                code = "unknown"
+                message = str(error)
+            raise RuntimeError(f"[{code}]: {message}")
+
+        if res.returncode != 0:
+            raise RuntimeError(
+                f"internal error (Go exec failed with code {res.returncode})"
+            )
+
         shares = None
         if (shares_data := output_dict.get("shares")) is not None:
             shares = [
@@ -232,8 +239,6 @@ def _call_go_exec(
         ) from error
     except FileNotFoundError as error:
         raise RuntimeError(f"internal error (no Go exec): {error}") from error
-    except subprocess.SubprocessError as error:
-        raise RuntimeError(f"internal error (Go exec failed): {error}") from error
 
 
 def configure_logger(new_logger: logging.Logger):
@@ -309,7 +314,7 @@ class Folder:
 class Client:
     _creds: Credentials
     _on_auth_change: OnAuthChange
-    _share_id: str
+    _share_id: str | None
     _log_level: str | None
 
     def __init__(
@@ -317,11 +322,12 @@ class Client:
         *,
         creds: Credentials,
         on_auth_change: OnAuthChange,
+        share_id: str | None = None,
         log_level: str | None = None,
     ):
         self._creds = creds
         self._on_auth_change = on_auth_change
-        self._share_id = ""
+        self._share_id = share_id
         self._log_level = log_level
         self._exec("check")
 
@@ -333,10 +339,6 @@ class Client:
         if res.shares is None:
             raise RuntimeError("internal error: wrong result in list_shares")
         return res.shares
-
-    def select_share(self, share_id: str) -> None:
-        self._share_id = share_id
-        self._exec("check")
 
     def _handle_auth_change(self, new_creds: Credentials) -> None:
         self._creds = new_creds

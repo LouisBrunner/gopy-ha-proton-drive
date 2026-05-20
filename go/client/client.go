@@ -69,7 +69,7 @@ func New(ctx context.Context, opts Options) (*Client, error) {
 		}
 	}
 
-	extension.MainShare, err = extension.FetchShare(ctx, opts.ShareID)
+	extension.MainShare, err = extension.FetchShare(ctx, shareID)
 	if err != nil {
 		return nil, err
 	}

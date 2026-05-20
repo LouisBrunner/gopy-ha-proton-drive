@@ -102,6 +102,7 @@ func (me *Extension) DownloadFile(ctx context.Context, link *proton.Link) (io.Re
 	}
 
 	return &downloadReader{
+		ext:        me,
 		ctx:        ctx,
 		link:       link,
 		data:       bytes.NewBuffer(nil),

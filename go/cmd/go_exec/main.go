@@ -23,6 +23,13 @@ type result struct {
 	Shares []client.Share `json:"shares"`
 	// Provided on `list-metadata`
 	Metadata []string `json:"metadata"`
+	// Set on failure
+	Error *resultError `json:"error,omitempty"`
+}
+
+type resultError struct {
+	Message string `json:"message"`
+	Code    string `json:"code"`
 }
 
 func prepareClient(ctx context.Context, logger *logrus.Logger, cmd *cli.Command, onAuthChange client.OnAuthChange, partialOpts *client.Options) (*client.Client, *client.Folder, error) {
@@ -265,24 +272,33 @@ func work(ctx context.Context, logger *logrus.Logger, args []string) (*result, e
 		},
 	}
 
-	err = cmd.Run(ctx, args)
-	if err != nil {
-		return nil, err
-	}
-	return &res, nil
+	return &res, cmd.Run(ctx, args)
 }
 
-func wrapper(ctx context.Context, logger *logrus.Logger, args []string) error {
+func wrapper(ctx context.Context, logger *logrus.Logger, args []string) bool {
 	res, err := work(ctx, logger, args)
-	if err != nil {
-		return err
+	if res == nil {
+		res = &result{}
 	}
-	resJSON, err := json.Marshal(res)
 	if err != nil {
-		return err
+		logger.WithError(err).Error("failed")
+		code := "unknown"
+		switch {
+		case errors.Is(err, client.ErrMFARequired):
+			code = "mfa"
+		case errors.Is(err, client.ErrMailboxPassRequired):
+			code = "two-pass"
+		}
+		res.Error = &resultError{Message: err.Error(), Code: code}
 	}
-	fmt.Println(string(resJSON))
-	return nil
+	resJSON, marshalErr := json.Marshal(res)
+	if marshalErr != nil {
+		// Last resort fallback - marshalling should never fail for this struct
+		fmt.Printf(`{"error":{"message":%q,"code":"unknown"}}`, marshalErr.Error())
+		return false
+	}
+	fmt.Print(string(resJSON))
+	return err == nil
 }
 
 func main() {
@@ -296,16 +312,7 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	err := wrapper(ctx, logger, os.Args)
-	if err != nil {
-		logger.WithError(err).Error("failed")
-		code := "unknown"
-		switch {
-		case errors.Is(err, client.ErrMFARequired):
-			code = "mfa"
-		case errors.Is(err, client.ErrMailboxPassRequired):
-			code = "two-pass"
-		}
-		fmt.Printf(`{"error":{"message":%q,"code":%q}}`, err.Error(), code)
+	if !wrapper(ctx, logger, os.Args) {
+		os.Exit(1)
 	}
 }
