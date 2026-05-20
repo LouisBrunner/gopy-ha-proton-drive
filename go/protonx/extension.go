@@ -15,6 +15,7 @@ type Extension struct {
 	addrKRs        map[string]*crypto.KeyRing
 	emailKRs       map[string]*crypto.KeyRing
 	emailToAddress map[string]proton.Address
+	creatorAddress string
 	MainShare      *Share
 }
 
@@ -50,6 +51,7 @@ func New(ctx context.Context, client *proton.Client, saltedKeyPassB64 string) (*
 		addrKRs:        addrKRs,
 		emailKRs:       make(map[string]*crypto.KeyRing),
 		emailToAddress: emailToAddress,
+		creatorAddress: user.Email,
 	}, nil
 }
 

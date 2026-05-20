@@ -107,7 +107,7 @@ func (me *Extension) createUploadDraft(ctx context.Context, parentLink *proton.L
 		NodeKey:                   payload.Key,
 		NodePassphrase:            payload.Passphrase,
 		NodePassphraseSignature:   payload.PassphraseSignature,
-		SignatureAddress:          me.MainShare.Share.Creator,
+		SignatureAddress:          me.creatorAddress,
 	}
 
 	first := true
@@ -383,7 +383,7 @@ func (me *Extension) commitNewRevision(ctx context.Context, nodeKR *crypto.KeyRi
 
 	return me.client.UpdateRevision(ctx, me.getShareID(), linkID, revisionID, proton.UpdateRevisionReq{
 		ManifestSignature: manifestSignature,
-		SignatureAddress:  me.MainShare.Share.Creator,
+		SignatureAddress:  me.creatorAddress,
 		XAttr:             xattrJSONEnc,
 	})
 }

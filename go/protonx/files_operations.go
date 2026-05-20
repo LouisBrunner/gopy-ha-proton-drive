@@ -93,7 +93,7 @@ func (me *Extension) CreateFolder(ctx context.Context, parentLink *proton.Link, 
 		NodeKey:                 payload.Key,
 		NodePassphrase:          payload.Passphrase,
 		NodePassphraseSignature: payload.PassphraseSignature,
-		SignatureAddress:        me.MainShare.Share.Creator,
+		SignatureAddress:        me.creatorAddress,
 	})
 	if err != nil {
 		return "", err

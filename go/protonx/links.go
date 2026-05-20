@@ -19,9 +19,11 @@ func (me *Extension) GetLink(ctx context.Context, linkID string, shareID ...stri
 	}
 
 	// no cached data, fetch
-	usedShareID := me.getShareID()
+	var usedShareID string
 	if len(shareID) > 0 {
 		usedShareID = shareID[0]
+	} else {
+		usedShareID = me.getShareID()
 	}
 	link, err := me.client.GetLink(ctx, usedShareID, linkID)
 	if err != nil {
