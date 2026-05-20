@@ -50,7 +50,8 @@ func New(ctx context.Context, opts Options) (*Client, error) {
 		return nil, err
 	}
 
-	if opts.ShareID == "" {
+	shareID := opts.ShareID
+	if shareID == "" {
 		volumes, err := client.ListVolumes(ctx)
 		if err != nil {
 			return nil, err
@@ -58,12 +59,12 @@ func New(ctx context.Context, opts Options) (*Client, error) {
 
 		for i := range volumes {
 			if volumes[i].State == proton.VolumeStateActive {
-				opts.ShareID = volumes[i].Share.ShareID
+				shareID = volumes[i].Share.ShareID
 				break
 			}
 		}
 
-		if opts.ShareID == "" {
+		if shareID == "" {
 			return nil, fmt.Errorf("no active volume found")
 		}
 	}
@@ -71,6 +72,26 @@ func New(ctx context.Context, opts Options) (*Client, error) {
 	extension.MainShare, err = extension.FetchShare(ctx, opts.ShareID)
 	if err != nil {
 		return nil, err
+	}
+
+	if opts.ShareID == "" {
+		allShares, err := client.ListShares(ctx, true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list shares for integrity check: %w", err)
+		}
+		mainShareValid := false
+		for _, s := range allShares {
+			if s.ShareID == extension.MainShare.Share.ShareID &&
+				s.LinkID == extension.MainShare.Share.LinkID &&
+				s.Flags == proton.PrimaryShare &&
+				s.Type == proton.ShareTypeMain {
+				mainShareValid = true
+				break
+			}
+		}
+		if !mainShareValid {
+			return nil, fmt.Errorf("main share %q failed integrity check: not a primary main share", opts.ShareID)
+		}
 	}
 
 	return &Client{

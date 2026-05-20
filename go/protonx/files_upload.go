@@ -107,7 +107,7 @@ func (me *Extension) createUploadDraft(ctx context.Context, parentLink *proton.L
 		NodeKey:                   payload.Key,
 		NodePassphrase:            payload.Passphrase,
 		NodePassphraseSignature:   payload.PassphraseSignature,
-		SignatureAddress:          me.creator,
+		SignatureAddress:          me.MainShare.Share.Creator,
 	}
 
 	first := true
@@ -310,11 +310,11 @@ type batchUploader struct {
 
 func (me *batchUploader) flush(ctx context.Context, flush bool) error {
 	const (
-		miniumBatchSize   = 8
+		minimumBatchSize  = 8
 		concurrentUploads = 20
 	)
 
-	if len(me.batch) == 0 || (!flush && len(me.batch) < miniumBatchSize) {
+	if len(me.batch) == 0 || (!flush && len(me.batch) < minimumBatchSize) {
 		return nil
 	}
 
@@ -383,7 +383,7 @@ func (me *Extension) commitNewRevision(ctx context.Context, nodeKR *crypto.KeyRi
 
 	return me.client.UpdateRevision(ctx, me.getShareID(), linkID, revisionID, proton.UpdateRevisionReq{
 		ManifestSignature: manifestSignature,
-		SignatureAddress:  me.creator,
+		SignatureAddress:  me.MainShare.Share.Creator,
 		XAttr:             xattrJSONEnc,
 	})
 }
