@@ -1,4 +1,4 @@
-package proton
+package client
 
 import (
 	"context"
@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	proton_api_bridge "github.com/henrybear327/Proton-API-Bridge"
-	"github.com/henrybear327/go-proton-api"
+	"github.com/LouisBrunner/gopy-ha-proton-drive/go/protonx"
+	"github.com/ProtonMail/go-proton-api"
 )
 
 func (me *Client) MakeRootFolder(ctx context.Context, path string) (*Folder, error) {
 	folders := strings.Split(path, "/")
-	currentFolder := me.drive.RootLink
+	currentFolder := me.extension.MainShare.RootFolder
 	for i, folder := range folders {
 		if folder == "" {
 			continue
@@ -30,11 +30,11 @@ func (me *Client) MakeRootFolder(ctx context.Context, path string) (*Folder, err
 			}
 		}
 		if nextFolder == nil {
-			newFolder, err := me.drive.CreateNewFolder(ctx, currentFolder, folder)
+			newFolder, err := me.extension.CreateFolder(ctx, currentFolder, folder)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create folder %q in %q: %w", folder, pathSoFar, err)
 			}
-			nextFolder, err = me.drive.GetLink(ctx, newFolder)
+			nextFolder, err = me.extension.GetLink(ctx, newFolder)
 			if err != nil {
 				return nil, fmt.Errorf("failed to retrieve new folder %q in %q: %w", folder, pathSoFar, err)
 			}
@@ -100,7 +100,7 @@ func (me *Folder) Upload(ctx context.Context, instanceID, backupID, name, haMeta
 		return fmt.Errorf("failed to serialize metadata for backup %q: %w", name, err)
 	}
 
-	_, _, err = me.client.drive.UploadFileByReader(ctx, me.LinkID, metadataName, time.Now(), strings.NewReader(string(metadataJSON)), 0)
+	err = me.client.extension.UploadFileByReader(ctx, me.LinkID, metadataName, time.Now(), strings.NewReader(string(metadataJSON)))
 	if err != nil {
 		return fmt.Errorf("failed to upload metadata for backup %q: %w", name, err)
 	}
@@ -116,7 +116,7 @@ func (me *Folder) Upload(ctx context.Context, instanceID, backupID, name, haMeta
 			chunkName := makeFileName(baseName, extendedSuffix(instanceID, backupID, makeChunkSuffix(i)))
 			err := me.client.retrier(ctx, me.client.uploadTries, func() error {
 				reader := io.NewSectionReader(file, int64(i)*int64(me.client.uploadChunkSizeBytes), int64(me.client.uploadChunkSizeBytes))
-				_, _, err := me.client.drive.UploadFileByReader(ctx, me.LinkID, chunkName, time.Now(), reader, 0)
+				err = me.client.extension.UploadFileByReader(ctx, me.LinkID, chunkName, time.Now(), reader)
 				return err
 			})
 			if err != nil {
@@ -125,7 +125,7 @@ func (me *Folder) Upload(ctx context.Context, instanceID, backupID, name, haMeta
 		}
 	} else {
 		err := me.client.retrier(ctx, me.client.uploadTries, func() error {
-			_, _, err := me.client.drive.UploadFileByPath(ctx, me.Link, archiveName, contentPath, 0)
+			err = me.client.extension.UploadFileByPath(ctx, me.Link, archiveName, contentPath)
 			return err
 		})
 		if err != nil {
@@ -141,7 +141,7 @@ func (me *Folder) Upload(ctx context.Context, instanceID, backupID, name, haMeta
 func (me *Folder) ListFilesMetadata(ctx context.Context, instanceID string) ([]string, error) {
 	suffix := extendedSuffix(instanceID, "", metadataSuffix)
 
-	files, err := me.client.listFiles(ctx, me.LinkID)
+	files, err := me.client.extension.ListDirectory(ctx, me.LinkID)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (me *Folder) ListFilesMetadata(ctx context.Context, instanceID string) ([]s
 
 func (me *Folder) Download(ctx context.Context, instanceID, backupID string) (_ string, ferr error) {
 	suffix := extendedSuffix(instanceID, backupID, metadataSuffix)
-	metadataFile, err := me.client.findFileInFn(ctx, me.LinkID, func(file *proton_api_bridge.ProtonDirectoryData) bool {
+	metadataFile, err := me.client.findFileInFn(ctx, me.LinkID, func(file *protonx.DirEntry) bool {
 		return strings.HasSuffix(file.Name, suffix)
 	})
 	if err != nil {
@@ -246,7 +246,7 @@ func (me *Folder) Download(ctx context.Context, instanceID, backupID string) (_ 
 }
 
 func (me *Folder) Delete(ctx context.Context, instanceID, backupID string) error {
-	files, err := me.client.listFiles(ctx, me.LinkID)
+	files, err := me.client.extension.ListDirectory(ctx, me.LinkID)
 	if err != nil {
 		return err
 	}
@@ -254,15 +254,15 @@ func (me *Folder) Delete(ctx context.Context, instanceID, backupID string) error
 	archiveBackupSuffix := extendedSuffix(instanceID, backupID, archiveSuffix)
 	metadataBackupSuffix := extendedSuffix(instanceID, backupID, metadataSuffix)
 
-	linkIDsToDelete := map[string]string{}
+	linkIDsToDelete := map[string]*protonx.DirEntry{}
 	var metadataLink *proton.Link
 
 	for _, file := range files {
 		switch {
 		case strings.HasSuffix(file.Name, archiveBackupSuffix): // fallback for legacy backups
-			linkIDsToDelete[file.Link.LinkID] = file.Name
+			linkIDsToDelete[file.Link.LinkID] = file
 		case strings.HasSuffix(file.Name, metadataBackupSuffix):
-			linkIDsToDelete[file.Link.LinkID] = file.Name
+			linkIDsToDelete[file.Link.LinkID] = file
 			metadataLink = file.Link
 		}
 	}
@@ -277,30 +277,30 @@ func (me *Folder) Delete(ctx context.Context, instanceID, backupID string) error
 
 		// only possible for newer metadata
 		if metadata != nil {
-			filesMap := make(map[string]*proton.Link, len(files))
+			filesMap := make(map[string]*protonx.DirEntry, len(files))
 			for _, file := range files {
-				filesMap[file.Name] = file.Link
+				filesMap[file.Name] = file
 			}
 
 			archiveFileName := makeFileName(metadata.BaseName, extendedSuffix(instanceID, backupID, archiveBackupSuffix))
-			if link, found := filesMap[archiveFileName]; found {
-				linkIDsToDelete[link.LinkID] = link.Name
+			if file, found := filesMap[archiveFileName]; found {
+				linkIDsToDelete[file.Link.LinkID] = file
 			}
 
 			if metadata.Chunks > 1 {
 				for i := uint32(0); i < metadata.Chunks; i += 1 {
 					fileName := makeFileName(metadata.BaseName, extendedSuffix(instanceID, backupID, makeChunkSuffix(i)))
-					if link, found := filesMap[fileName]; found {
-						linkIDsToDelete[link.LinkID] = link.Name
+					if file, found := filesMap[fileName]; found {
+						linkIDsToDelete[file.Link.LinkID] = file
 					}
 				}
 			}
 		}
 	}
 
-	for linkID, fileName := range linkIDsToDelete {
-		me.client.logger.Infof("deleting file %q", fileName)
-		err = me.client.drive.MoveFileToTrashByID(ctx, linkID)
+	for _, file := range linkIDsToDelete {
+		me.client.logger.Infof("deleting file %q", file.Name)
+		err = me.client.extension.MoveFileToTrash(ctx, file.Link)
 		if err != nil {
 			return fmt.Errorf("failed to delete file: %w", err)
 		}

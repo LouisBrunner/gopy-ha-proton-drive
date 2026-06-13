@@ -16,9 +16,8 @@ gopy-ha-proton-drive @ git+https://github.com/LouisBrunner/gopy-ha-proton-drive@
 
 ## Disclaimers
 
-* It used to be built through [`gopy`](https://github.com/go-python/gopy) but due to compilation issues this was dropped.
-* It is built specifically for [ha-proton-drive](https://github.com/LouisBrunner/ha-proton-drive), thus it is unlikely to be useful for your use-case.
-* Due to API changes, it relies on 2 Go forks:
-
+- It used to be built through [`gopy`](https://github.com/go-python/gopy) but due to compilation issues this was dropped.
+- It is built specifically for [ha-proton-drive](https://github.com/LouisBrunner/ha-proton-drive), thus it is unlikely to be useful for your use-case.
+- The `protonx` package is a stripped down and heavily adapted version of [Proton-API-Bridge](https://github.com/henrybear327/Proton-API-Bridge)
+- Due to API changes, it relies on 1 Go fork:
   - https://github.com/LouisBrunner/go-proton-api: `main` branch
-  - https://github.com/LouisBrunner/Proton-API-Bridge: `main` branch

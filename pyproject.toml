@@ -1,16 +1,16 @@
 [project]
 name = "gopy-ha-proton-drive"
-version = "0.0.7"
+version = "0.1.0"
 description = "Python bindings for a Go wrapper around go-proton-api and Proton-API-Bridge"
 readme = "README.md"
 requires-python = ">=3.13"
-keywords = ["proton", "drive"]
-authors = [{ name = "Louis Brunner", email = "pip@lbrunner.net" }]
 license = "MPL-2.0"
+authors = [{ name = "Louis Brunner", email = "pip@lbrunner.net" }]
+keywords = ["drive", "proton"]
 classifiers = [
-  "Programming Language :: Python :: 3",
   "Development Status :: 3 - Alpha",
   "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
 ]
 
 dependencies = []
