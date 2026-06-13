@@ -58,7 +58,7 @@ func (cache *Cache) Insert(linkID string, link *proton.Link, kr *crypto.KeyRing)
 		cache.children[link.ParentLinkID] = data
 	} else {
 		cache.children[link.ParentLinkID] = map[string]struct{}{
-			link.LinkID: struct{}{},
+			link.LinkID: {},
 		}
 	}
 }
